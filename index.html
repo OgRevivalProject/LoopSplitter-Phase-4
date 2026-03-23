@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dungeon Loot Splitter - Split treasure evenly among your adventuring party">
+    <meta name="author" content="Shane R">
+    <meta name="theme-color" content="#1a0f0a">
+    <title>Dungeon Loot Splitter</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <div class="skull-left" aria-hidden="true">&#9760;</div>
+            <h1>Dungeon Loot Splitter</h1>
+            <div class="skull-right" aria-hidden="true">&#9760;</div>
+        </div>
+        <p class="header-subtitle">Divide the spoils. Trust no one. Split everything.</p>
+    </header>
+
+    <main>
+
+        <!-- Party size change triggers a recalculation immediately, no button needed -->
+        <section class="panel" id="panel-party" aria-labelledby="party-heading">
+            <h2 id="party-heading">&#9876; Party Setup</h2>
+            <div class="form-group">
+                <label for="party-size">Number of Party Members:</label>
+                <input
+                    type="number"
+                    id="party-size"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 4"
+                    aria-describedby="party-error"
+                    required
+                >
+                <span class="error-msg" id="party-error" role="alert" aria-live="polite"></span>
+            </div>
+
+            <button id="reset-all-btn" type="button" class="btn-reset">Reset All</button>
+        </section>
+
+        <!-- All three fields stay stacked vertically at every screen size -->
+        <section class="panel" id="panel-add-loot" aria-labelledby="add-loot-heading">
+            <h2 id="add-loot-heading">&#128176; Add Loot</h2>
+
+            <div class="form-group">
+                <label for="loot-name">Loot Name:</label>
+                <input
+                    type="text"
+                    id="loot-name"
+                    placeholder="e.g. Dragon Scale"
+                    aria-describedby="loot-error"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="loot-value">Loot Value ($):</label>
+                <input
+                    type="number"
+                    id="loot-value"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 150.00"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="loot-quantity">Quantity:</label>
+                <input
+                    type="number"
+                    id="loot-quantity"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 1"
+                    required
+                >
+            </div>
+
+            <span class="error-msg" id="loot-error" role="alert" aria-live="polite"></span>
+            <button id="add-loot-btn" type="button">Add Loot</button>
+        </section>
+
+        <!-- Grid layout keeps the columns lined up no matter how many items get added -->
+        <section class="panel" id="panel-loot-list" aria-labelledby="loot-list-heading">
+            <h2 id="loot-list-heading">&#128220; Loot List</h2>
+
+            <div id="noLootMessage" aria-live="polite">No loot added.</div>
+
+            <div class="loot-table hidden" id="loot-table-wrapper">
+                <div class="loot-header">Name</div>
+                <div class="loot-header">Value</div>
+                <div class="loot-header">Qty</div>
+                <div class="loot-header">Remove</div>
+                <div id="lootRows"></div>
+            </div>
+
+            <div class="total-display">
+                <span class="total-label">Total Loot:</span>
+                <span class="total-value">$<span id="totalLoot">0.00</span></span>
+            </div>
+        </section>
+
+        <!-- Split panel -->
+        <section class="panel" id="panel-split" aria-labelledby="split-heading">
+            <h2 id="split-heading">&#9878; Split Loot</h2>
+
+            <button id="split-loot-btn" type="button" disabled>Split Loot</button>
+
+            <span class="error-msg" id="split-error" role="alert" aria-live="polite"></span>
+
+            <div class="results-area hidden" id="results-area" aria-live="polite">
+                <div class="result-row">
+                    <span class="result-label">Total Loot:</span>
+                    <span class="result-value" id="result-total">&#8212;</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Loot Per Party Member:</span>
+                    <span class="result-value" id="result-per-member">&#8212;</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 4: Server sync panel — sits between split and reflection -->
+        <section class="panel panel-server" id="panel-server" aria-labelledby="server-heading">
+            <h2 id="server-heading">&#127760; Server Sync</h2>
+
+            <div class="server-btn-group">
+                <button id="sync-btn" type="button" class="btn-server">Sync to Server</button>
+                <button id="load-btn" type="button" class="btn-server btn-server-load">Load from Server</button>
+            </div>
+
+            <!-- Status message area — shows success or failure feedback for both operations -->
+            <div
+                id="server-status"
+                class="server-status hidden"
+                role="alert"
+                aria-live="polite"
+            ></div>
+        </section>
+
+        <!-- Reflection sits at the bottom and spans both columns -->
+        <section class="panel reflection" id="panel-reflection" aria-labelledby="reflection-heading">
+            <h2 id="reflection-heading">&#129497; Logic Explanation</h2>
+            <div class="reflection-content">
+
+                <p><strong>Array as Source of Truth:</strong> All loot lives in a single array called <code>loot</code> declared at the top of <code>script.js</code>. The screen never stores values — it reflects only what the array contains. When loot is added, removed, or party size changes, the array updates first, then <code>updateUI()</code> recalculates everything from that array. The display follows the data; the data never follows the display.</p>
+
+                <p><strong>Quantity in the Data Model:</strong> Each loot object carries <code>name</code>, <code>value</code>, and <code>quantity</code>. Storing quantity in the object means the data model is complete and self-contained. Total value per item is computed as <code>value &times; quantity</code> inside the loop in <code>updateUI()</code>, ensuring the math always reflects the actual object — not a stale UI value.</p>
+
+                <p><strong>updateUI() as the Single Renderer:</strong> All calculations and all DOM writes happen inside <code>updateUI()</code>. No other function calculates totals or updates visible output. Every state-changing action — add, remove, party size change, split, reset — calls <code>updateUI()</code> immediately after mutating state. This eliminates duplicate logic and guarantees the interface is never out of sync.</p>
+
+                <p><strong>State Controls Visibility and Actions:</strong> <code>updateUI()</code> uses conditional logic to show or hide sections and enable or disable buttons. The loot table is hidden when the array is empty. The results panel is hidden when party size is invalid or the loot array is empty. The Split button is disabled until both conditions are valid. Visibility is controlled exclusively by adding or removing the <code>.hidden</code> CSS class — JavaScript never touches <code>style</code> properties directly.</p>
+
+                <p><strong>Preventing Invalid State:</strong> Validation runs inside <code>addLoot()</code> before any mutation. Name must be non-empty, value must be a valid non-negative number, and quantity must be at least 1. If any check fails, the array is not touched and an error displays in the UI. The same rules apply during restoration — each saved item is re-validated before being pushed back into the live array.</p>
+
+                <p><strong>How State Is Saved and Restored:</strong> <code>saveState()</code> packages the current <code>loot</code> array and <code>partySize</code> into a single object and writes it to localStorage using <code>JSON.stringify()</code>. On page load, <code>restoreState()</code> retrieves that string, parses it back into an object with <code>JSON.parse()</code>, validates every field, and assigns the results to the live variables before <code>updateUI()</code> runs. This means the app wakes up in exactly the state it was left in.</p>
+
+                <p><strong>Why updateUI() Must Run After Restoration:</strong> Restoring state only puts the data back into memory — it doesn't touch the DOM. The page still shows the default empty state until <code>updateUI()</code> runs and rebuilds the loot list, recalculates totals, and re-enables the split button based on what was restored. Without that call, the data would be there but invisible.</p>
+
+                <p><strong>External Sync Without State Mutation:</strong> <code>syncToServer()</code> reads from <code>loot</code> and <code>partySize</code> but never writes to them. It packages the current state into a JSON payload and sends it to the server. The response is checked for <code>status === "saved"</code> before showing any feedback. No render cycle runs because nothing changed in memory — the display already reflects the truth.</p>
+
+                <p><strong>Fetch - Validate - Assign - Save - Render:</strong> When <code>loadFromServer()</code> receives data, it does not trust it. Every field goes through the same validation loop used in <code>restoreState()</code>. Only after every item passes does the function assign values to <code>loot</code> and <code>partySize</code>. Only then does it call <code>saveState()</code> to write to localStorage, and only then does it call <code>updateUI()</code>. If anything fails validation, both in-memory state and localStorage are left exactly as they were.</p>
+
+                <p><strong>The Reset Lifecycle:</strong> Reset is not just cosmetic. Clearing the array and setting <code>partySize</code> back to 1 resets in-memory state. Calling <code>localStorage.removeItem()</code> destroys the persisted state so a future page load starts fresh. Then <code>updateUI()</code> reflects that empty state immediately. Without removing from localStorage, the data would come back on the next refresh even after a reset.</p>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
